@@ -372,8 +372,10 @@ impl<G: Group, SC: StepCircuit<G::Base>> Circuit<<G as Group>::Base>
 mod tests {
   use super::*;
   use crate::bellperson::{shape_cs::ShapeCS, solver::SatisfyingAssignment};
-  type G1 = pasta_curves::pallas::Point;
-  type G2 = pasta_curves::vesta::Point;
+  //type G1 = pasta_curves::pallas::Point;
+  //type G2 = pasta_curves::vesta::Point;
+  type G1 = grumpkin::bn256::Point;
+  type G2 = grumpkin::grumpkin::Point;
 
   use crate::constants::{BN_LIMB_WIDTH, BN_N_LIMBS};
   use crate::{
@@ -401,7 +403,7 @@ mod tests {
     let mut cs: ShapeCS<G1> = ShapeCS::new();
     let _ = circuit1.synthesize(&mut cs);
     let (shape1, ck1) = cs.r1cs_shape();
-    assert_eq!(cs.num_constraints(), 9815);
+    assert_eq!(cs.num_constraints(), 9983);
 
     // Initialize the shape and ck for the secondary
     let circuit2: NovaAugmentedCircuit<G1, TrivialTestCircuit<<G1 as Group>::Base>> =
