@@ -1,7 +1,7 @@
 //! This library implements Nova, a high-speed recursive SNARK.
 #![deny(
-  //warnings,
-  //unused,
+  warnings,
+  unused,
   future_incompatible,
   nonstandard_style,
   rust_2018_idioms,
@@ -391,13 +391,11 @@ where
   ) -> Result<(Vec<G1::Scalar>, Vec<G2::Scalar>), NovaError> {
     // number of steps cannot be zero
     if num_steps == 0 {
-        println!("111");
       return Err(NovaError::ProofVerifyError);
     }
 
     // check if the provided proof has executed num_steps
     if self.i != num_steps {
-        println!("222");
       return Err(NovaError::ProofVerifyError);
     }
 
@@ -407,7 +405,6 @@ where
       || self.r_U_primary.X.len() != 2
       || self.r_U_secondary.X.len() != 2
     {
-        println!("333");
       return Err(NovaError::ProofVerifyError);
     }
 
@@ -450,7 +447,6 @@ where
     if hash_primary != scalar_as_base::<G1>(self.l_u_primary.X[1])
       || hash_secondary != scalar_as_base::<G2>(self.l_u_secondary.X[1])
     {
-        println!("444");
       return Err(NovaError::ProofVerifyError);
     }
 
@@ -881,7 +877,6 @@ mod tests {
       vec![<G1 as Group>::Scalar::ZERO],
       vec![<G2 as Group>::Scalar::ZERO],
     );
-    println!("{:?}", res);
     assert!(res.is_ok());
   }
 

@@ -32,8 +32,8 @@ flate2 = "1.0"
 bitvec = "1.0"
 byteorder = "1.4.3"
 thiserror = "1.0" 
-# grumpkin = { path = "../grumpkin" }
-grumpkin = { git = "https://github.com/leonardoalt/grumpkin", branch = "hash_to_curves" }
+grumpkin = { path = "../grumpkin" }
+# grumpkin = { git = "https://github.com/leonardoalt/grumpkin", branch = "hash_to_curves" }
 
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
 pasta-msm = { version = "0.1.0", git="https://github.com/supranational/pasta-msm.git"}

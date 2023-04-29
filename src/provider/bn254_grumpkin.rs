@@ -157,7 +157,7 @@ macro_rules! impl_traits {
 
     impl<G: Group> TranscriptReprTrait<G> for $name_compressed {
       fn to_transcript_bytes(&self) -> Vec<u8> {
-        self.to_repr().as_ref().to_vec()
+        self.as_ref().to_vec()
       }
     }
 

@@ -416,7 +416,7 @@ mod tests {
     let mut cs: ShapeCS<G2> = ShapeCS::new();
     let _ = circuit2.synthesize(&mut cs);
     let (shape2, ck2) = cs.r1cs_shape();
-    assert_eq!(cs.num_constraints(), 10347);
+    assert_eq!(cs.num_constraints(), 10536);
 
     // Execute the base case for the primary
     let zero1 = <<G2 as Group>::Base as Field>::ZERO;

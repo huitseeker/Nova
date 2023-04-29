@@ -842,9 +842,7 @@ mod tests {
       let lambda = G::Base::from(3)
         * self.x
         * self.x
-        * ((G::Base::ONE + G::Base::ONE) * self.y)
-          .invert()
-          .unwrap();
+        * ((G::Base::ONE + G::Base::ONE) * self.y).invert().unwrap();
       let x = lambda * lambda - self.x - self.x;
       let y = lambda * (self.x - x) - self.y;
       Self {
