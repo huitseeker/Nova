@@ -755,6 +755,7 @@ mod tests {
     {shape_cs::ShapeCS, solver::SatisfyingAssignment},
   };
   use ff::{Field, PrimeFieldBits};
+  use grumpkin::{Bn256G1, Bn256G1Affine, G1Affine, G1};
   use pasta_curves::{arithmetic::CurveAffine, group::Curve, pallas, vesta};
   use rand::rngs::OsRng;
 
@@ -896,6 +897,12 @@ mod tests {
   fn test_ecc_ops() {
     test_ecc_ops_with::<pallas::Affine, pallas::Point>();
     test_ecc_ops_with::<vesta::Affine, vesta::Point>();
+  }
+
+  #[test]
+  fn test_grumpkin_ops() {
+    test_ecc_ops_with::<Bn256G1Affine, Bn256G1>();
+    test_ecc_ops_with::<G1Affine, G1>();
   }
 
   fn test_ecc_ops_with<C, G>()
