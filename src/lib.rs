@@ -175,8 +175,6 @@ where
 {
   r_W_primary: RelaxedR1CSWitness<G1>,
   r_U_primary: RelaxedR1CSInstance<G1>,
-  l_w_primary: R1CSWitness<G1>,
-  l_u_primary: R1CSInstance<G1>,
   r_W_secondary: RelaxedR1CSWitness<G2>,
   r_U_secondary: RelaxedR1CSInstance<G2>,
   l_w_secondary: R1CSWitness<G2>,
@@ -275,8 +273,6 @@ where
     Self {
       r_W_primary,
       r_U_primary,
-      l_w_primary,
-      l_u_primary,
       r_W_secondary,
       r_U_secondary,
       l_w_secondary,
@@ -366,7 +362,7 @@ where
       z0_secondary,
       Some(self.zi_secondary.clone()),
       Some(self.r_U_primary.clone()),
-      Some(l_u_primary.clone()),
+      Some(l_u_primary),
       Some(Commitment::<G1>::decompress(&nifs_primary.comm_T)?),
     );
 
@@ -397,9 +393,6 @@ where
     self.r_U_secondary = r_U_secondary;
     self.r_W_secondary = r_W_secondary;
 
-    self.l_w_primary = l_w_primary;
-    self.l_u_primary = l_u_primary;
-
     Ok(())
   }
 
@@ -422,8 +415,7 @@ where
     }
 
     // check if the (relaxed) R1CS instances have two public outputs
-    if self.l_u_primary.X.len() != 2
-      || self.l_u_secondary.X.len() != 2
+    if self.l_u_secondary.X.len() != 2
       || self.r_U_primary.X.len() != 2
       || self.r_U_secondary.X.len() != 2
     {
@@ -869,10 +861,13 @@ mod tests {
     }
   }
 
-  #[test]
-  fn test_ivc_trivial() {
-    let c_primary = TrivialTestCircuit::default();
-    let c_secondary = TrivialTestCircuit::default();
+  fn test_ivc_trivial_with<G1, G2>()
+  where
+    G1: Group<Base = <G2 as Group>::Scalar>,
+    G2: Group<Base = <G1 as Group>::Scalar>,
+  {
+    let test_circuit1 = TrivialTestCircuit::<<G1 as Group>::Scalar>::default();
+    let test_circuit2 = TrivialTestCircuit::<<G2 as Group>::Scalar>::default();
 
     // produce public parameters
     let pp = PublicParams::<
@@ -880,41 +875,37 @@ mod tests {
       G2,
       TrivialTestCircuit<<G1 as Group>::Scalar>,
       TrivialTestCircuit<<G2 as Group>::Scalar>,
-    >::setup(c_primary.clone(), c_secondary.clone());
+    >::setup(test_circuit1.clone(), test_circuit2.clone());
 
     let num_steps = 1;
 
     // produce a recursive SNARK
-    let mut recursive_snark = RecursiveSNARK::<
-      G1,
-      G2,
-      TrivialTestCircuit<<G1 as Group>::Scalar>,
-      TrivialTestCircuit<<G2 as Group>::Scalar>,
-    >::new(
+    let mut recursive_snark = RecursiveSNARK::new(
       &pp,
-      &c_primary,
-      &c_secondary,
-      vec![<G1 as Group>::Scalar::zero()],
-      vec![<G2 as Group>::Scalar::zero()],
+      &test_circuit1,
+      &test_circuit2,
+      vec![<G1 as Group>::Scalar::ZERO],
+      vec![<G2 as Group>::Scalar::ZERO],
     );
 
     let res = recursive_snark.prove_step(
       &pp,
-      &c_primary,
-      &c_secondary,
-      vec![<G1 as Group>::Scalar::zero()],
-      vec![<G2 as Group>::Scalar::zero()],
+      &test_circuit1,
+      &test_circuit2,
+      vec![<G1 as Group>::Scalar::ZERO],
+      vec![<G2 as Group>::Scalar::ZERO],
     );
+
     assert!(res.is_ok());
 
     // verify the recursive SNARK
-    let result = recursive_snark.verify(
+    let res = recursive_snark.verify(
       &pp,
       num_steps,
       vec![<G1 as Group>::Scalar::ZERO],
       vec![<G2 as Group>::Scalar::ZERO],
     );
-    assert!(result.is_ok());
+    assert!(res.is_ok());
   }
 
   #[test]
@@ -952,8 +943,8 @@ mod tests {
       &pp,
       &circuit_primary,
       &circuit_secondary,
-      vec![<G1 as Group>::Scalar::one()],
-      vec![<G2 as Group>::Scalar::zero()],
+      vec![<G1 as Group>::Scalar::ONE],
+      vec![<G2 as Group>::Scalar::ZERO],
     );
 
     for i in 0..num_steps {
@@ -961,17 +952,17 @@ mod tests {
         &pp,
         &circuit_primary,
         &circuit_secondary,
-        vec![<G1 as Group>::Scalar::one()],
-        vec![<G2 as Group>::Scalar::zero()],
+        vec![<G1 as Group>::Scalar::ONE],
+        vec![<G2 as Group>::Scalar::ZERO],
       );
-
       assert!(res.is_ok());
 
+      // verify the recursive snark at each step of recursion
       let res = recursive_snark.verify(
         &pp,
         i + 1,
-        vec![<G1 as Group>::Scalar::one()],
-        vec![<G2 as Group>::Scalar::zero()],
+        vec![<G1 as Group>::Scalar::ONE],
+        vec![<G2 as Group>::Scalar::ZERO],
       );
       assert!(res.is_ok());
     }
@@ -1038,8 +1029,8 @@ mod tests {
       &pp,
       &circuit_primary,
       &circuit_secondary,
-      vec![<G1 as Group>::Scalar::one()],
-      vec![<G2 as Group>::Scalar::zero()],
+      vec![<G1 as Group>::Scalar::ONE],
+      vec![<G2 as Group>::Scalar::ZERO],
     );
 
     for _i in 0..num_steps {
@@ -1047,8 +1038,8 @@ mod tests {
         &pp,
         &circuit_primary,
         &circuit_secondary,
-        vec![<G1 as Group>::Scalar::one()],
-        vec![<G2 as Group>::Scalar::zero()],
+        vec![<G1 as Group>::Scalar::ONE],
+        vec![<G2 as Group>::Scalar::ZERO],
       );
       assert!(res.is_ok());
     }
@@ -1132,8 +1123,8 @@ mod tests {
       &pp,
       &circuit_primary,
       &circuit_secondary,
-      vec![<G1 as Group>::Scalar::one()],
-      vec![<G2 as Group>::Scalar::zero()],
+      vec![<G1 as Group>::Scalar::ONE],
+      vec![<G2 as Group>::Scalar::ZERO],
     );
 
     for _i in 0..num_steps {
@@ -1141,8 +1132,8 @@ mod tests {
         &pp,
         &circuit_primary,
         &circuit_secondary,
-        vec![<G1 as Group>::Scalar::one()],
-        vec![<G2 as Group>::Scalar::zero()],
+        vec![<G1 as Group>::Scalar::ONE],
+        vec![<G2 as Group>::Scalar::ZERO],
       );
       assert!(res.is_ok());
     }
@@ -1357,13 +1348,16 @@ mod tests {
     G1: Group<Base = <G2 as Group>::Scalar>,
     G2: Group<Base = <G1 as Group>::Scalar>,
   {
+    let test_circuit1 = TrivialTestCircuit::<<G1 as Group>::Scalar>::default();
+    let test_circuit2 = CubicCircuit::<<G2 as Group>::Scalar>::default();
+
     // produce public parameters
     let pp = PublicParams::<
       G1,
       G2,
       TrivialTestCircuit<<G1 as Group>::Scalar>,
       CubicCircuit<<G2 as Group>::Scalar>,
-    >::setup(c_primary.clone(), c_secondary.clone());
+    >::setup(test_circuit1.clone(), test_circuit2.clone());
 
     let num_steps = 1;
 
@@ -1375,18 +1369,19 @@ mod tests {
       CubicCircuit<<G2 as Group>::Scalar>,
     >::new(
       &pp,
-      &c_primary,
-      &c_secondary,
-      vec![<G1 as Group>::Scalar::one()],
-      vec![<G2 as Group>::Scalar::zero()],
+      &test_circuit1,
+      &test_circuit2,
+      vec![<G1 as Group>::Scalar::ONE],
+      vec![<G2 as Group>::Scalar::ZERO],
     );
 
+    // produce a recursive SNARK
     let res = recursive_snark.prove_step(
       &pp,
-      &c_primary,
-      &c_secondary,
-      vec![<G1 as Group>::Scalar::one()],
-      vec![<G2 as Group>::Scalar::zero()],
+      &test_circuit1,
+      &test_circuit2,
+      vec![<G1 as Group>::Scalar::ONE],
+      vec![<G2 as Group>::Scalar::ZERO],
     );
 
     assert!(res.is_ok());
