@@ -56,7 +56,13 @@ pub trait Group:
     + for<'de> Deserialize<'de>;
 
   /// A type representing preprocessed group element
-  type PreprocessedGroupElement: Clone + Debug + Send + Sync + Serialize + for<'de> Deserialize<'de>;
+  type PreprocessedGroupElement: Clone
+    + Debug
+    + Send
+    + Sync
+    + Serialize
+    + for<'de> Deserialize<'de>
+    + crate::traits::uncompressed::SerializableUncompressed;
 
   /// A type that represents a circuit-friendly sponge that consumes elements
   /// from the base field and squeezes out elements of the scalar field
@@ -248,3 +254,72 @@ impl<G: Group, T: TranscriptReprTrait<G>> TranscriptReprTrait<G> for &[T] {
 pub mod circuit;
 pub mod evaluation;
 pub mod snark;
+
+/// Serializers for PreprocessedGroupElement elements that are convertible to an uncompressed representation through group::UncompressedEncoding
+///
+/// Use `#[serde(with = "uncompressed")]` at the point where the object is
+/// used inside a struct or enum definition.
+///
+// #[cfg(feature = "uncompressed_serialization")]
+pub(crate) mod uncompressed {
+  use super::*;
+  use group::UncompressedEncoding;
+  use serde::{
+    de::{Deserializer, Error as DeError},
+    ser::Serializer,
+  };
+  use serde_with::{DeserializeAs, SerializeAs};
+
+  /// Convenience trait for those instances of UncompressedEncoding which Uncompressed representation type are also serializable
+  pub trait SerializableUncompressed: UncompressedEncoding<Uncompressed = Self::Target> {
+    /// This is intended to be the Uncompressed representation type of the base trait
+    /// to which we are adding a byte-conversion bound
+    type Target: for<'a> TryFrom<&'a [u8]>;
+  }
+
+  /// A blanket implementation that conveys our intended meaning: this works iff the Uncompressed representation type is
+  /// convertible to bytes
+  impl<T> SerializableUncompressed for T
+  where
+    T: UncompressedEncoding,
+    <T as UncompressedEncoding>::Uncompressed: for<'a> TryFrom<&'a [u8]>,
+  {
+    type Target = <T as UncompressedEncoding>::Uncompressed;
+  }
+
+  pub struct SerializeUncompressed {}
+
+  impl<T: SerializableUncompressed> SerializeAs<T> for SerializeUncompressed {
+    fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+      S: Serializer,
+    {
+      #[inline]
+      fn uncompressed_bytes<T: UncompressedEncoding>(source: &T) -> &[u8] {
+        <<T as UncompressedEncoding>::Uncompressed as AsRef<[u8]>>::as_ref(
+          &source.to_uncompressed(),
+        )
+      }
+      let bytes = uncompressed_bytes(source);
+
+      Serialize::serialize(bytes, serializer)
+    }
+  }
+
+  impl<'de, T: SerializableUncompressed> DeserializeAs<'de, T> for SerializeUncompressed {
+    fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
+    where
+      D: Deserializer<'de>,
+    {
+      let bytes = <&[u8]>::deserialize(deserializer)?;
+      T::Target::try_from(&bytes[..])
+        .ok()
+        .and_then(|uncompressed| Option::from(T::from_uncompressed(&uncompressed)))
+        .ok_or_else(|| {
+          DeError::custom(format!(
+            "failed to deserialize group element from uncompressed bytes"
+          ))
+        })
+    }
+  }
+}
