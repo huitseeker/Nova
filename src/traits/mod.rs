@@ -55,14 +55,26 @@ pub trait Group:
     + Serialize
     + for<'de> Deserialize<'de>;
 
-  /// A type representing preprocessed group element
-  type PreprocessedGroupElement: Clone
-    + Debug
-    + Send
-    + Sync
-    + Serialize
-    + for<'de> Deserialize<'de>
-    + crate::traits::uncompressed::SerializableUncompressed;
+  cfg_if::cfg_if! {
+      if #[cfg(feature = "uncompressed_serialization")] {
+        /// A type representing preprocessed group elements
+        type PreprocessedGroupElement: Clone
+          + Debug
+          + Send
+          + Sync
+          + Serialize
+          + for<'de> Deserialize<'de>
+          + crate::traits::uncompressed::SerializableUncompressed;
+      } else {
+        /// A type representing preprocessed group elements
+        type PreprocessedGroupElement: Clone
+          + Debug
+          + Send
+          + Sync
+          + Serialize
+          + for<'de> Deserialize<'de>;
+      }
+  }
 
   /// A type that represents a circuit-friendly sponge that consumes elements
   /// from the base field and squeezes out elements of the scalar field
@@ -260,7 +272,7 @@ pub mod snark;
 /// Use `#[serde(with = "uncompressed")]` at the point where the object is
 /// used inside a struct or enum definition.
 ///
-// #[cfg(feature = "uncompressed_serialization")]
+#[cfg(feature = "uncompressed_serialization")]
 pub(crate) mod uncompressed {
   use super::*;
   use group::UncompressedEncoding;
@@ -278,7 +290,7 @@ pub(crate) mod uncompressed {
   }
 
   /// A blanket implementation that conveys our intended meaning: this works iff the Uncompressed representation type is
-  /// convertible to bytes
+  /// serializable
   impl<T> SerializableUncompressed for T
   where
     T: UncompressedEncoding,

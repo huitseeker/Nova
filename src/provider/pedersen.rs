@@ -14,13 +14,14 @@ use core::{
 use ff::Field;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
 
 /// A type that holds commitment generators
-#[serde_as]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitmentKey<G: Group> {
-  #[serde_as(as = "Vec<crate::traits::uncompressed::SerializeUncompressed>")]
+  #[cfg_attr(
+    feature = "uncompressed_serialization",
+    serde(with = "serde_with::As::<Vec<crate::traits::uncompressed::SerializeUncompressed>>")
+  )]
   ck: Vec<G::PreprocessedGroupElement>,
   _p: PhantomData<G>,
 }
