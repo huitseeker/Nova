@@ -61,4 +61,4 @@ opencl = ["neptune/opencl", "neptune/pasta", "neptune/arity24"]
 uncompressed_serialization = ["group", "serde_with"]
 
 [patch.crates-io]
-pasta_curves = { git = "https://github.com/huitseeker/pasta_curves", branch = "uncompressed" }
+pasta_curves = { git = "https://github.com/huitseeker/pasta_curves", branch = "uncompressed2" }
