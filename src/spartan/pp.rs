@@ -2192,6 +2192,7 @@ impl<G: Group, EE: EvaluationEngineTrait<G, CE = G::CE>, C: StepCircuit<G::Scala
 mod tests {
   use super::*;
   use ::bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
+use halo2curves::bn256;
   use core::marker::PhantomData;
   use ff::PrimeField;
 
@@ -2250,6 +2251,7 @@ mod tests {
     type EE = crate::provider::ipa_pc::EvaluationEngine<G>;
 
     test_spartan_snark_with::<G, EE>();
+    test_spartan_snark_with::<_, crate::provider::ipa_pc::EvaluationEngine<bn256::Point>>();
   }
 
   fn test_spartan_snark_with<G: Group, EE: EvaluationEngineTrait<G, CE = G::CE>>() {

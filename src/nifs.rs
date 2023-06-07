@@ -211,6 +211,8 @@ mod tests {
   #[test]
   fn test_tiny_r1cs_bellperson() {
     test_tiny_r1cs_bellperson_with::<G>();
+  
+    test_tiny_r1cs_bellperson_with::<halo2curves::bn256::Point>();
   }
 
   #[allow(clippy::too_many_arguments)]

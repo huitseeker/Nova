@@ -101,7 +101,7 @@ mod tests {
   use ff::PrimeField;
   use sha3::{Digest, Keccak256};
 
-  fn test_keccak_transcript_with<G: Group>() {
+  fn test_keccak_transcript_with<G: Group>(expected_h1: &'static str, expected_h2: &'static str) {
     let mut transcript: Keccak256Transcript<G> = Keccak256Transcript::new(b"test");
 
     // two scalars
@@ -116,7 +116,7 @@ mod tests {
     let c1: <G as Group>::Scalar = transcript.squeeze(b"c1").unwrap();
     assert_eq!(
       hex::encode(c1.to_repr().as_ref()),
-      "432d5811c8be3d44d47f52108a8749ae18482efd1a37b830f966456b5d75340c"
+      expected_h1
     );
 
     // a scalar
@@ -129,14 +129,16 @@ mod tests {
     let c2: <G as Group>::Scalar = transcript.squeeze(b"c2").unwrap();
     assert_eq!(
       hex::encode(c2.to_repr().as_ref()),
-      "65f7908d53abcd18f3b1d767456ef9009b91c7566a635e9ca7be26e21d4d7a10"
+      expected_h2
     );
   }
 
   #[test]
   fn test_keccak_transcript() {
     type G = pasta_curves::pallas::Point;
-    test_keccak_transcript_with::<G>()
+    test_keccak_transcript_with::<G>("432d5811c8be3d44d47f52108a8749ae18482efd1a37b830f966456b5d75340c", "65f7908d53abcd18f3b1d767456ef9009b91c7566a635e9ca7be26e21d4d7a10");
+  
+    test_keccak_transcript_with::<halo2curves::bn256::Point>("93f9160d5501865b399ee4ff0ffe17b697a4023e33e931e2597d36e6cc4ac602", "bca8bdb96608a8277a7cb34bd493dfbc5baf2a080d1d6c9d32d7ab4f238eb803");
   }
 
   #[test]

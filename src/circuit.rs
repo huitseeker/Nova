@@ -372,11 +372,9 @@ impl<G: Group, SC: StepCircuit<G::Base>> Circuit<<G as Group>::Base>
 mod tests {
   use super::*;
   use crate::bellperson::{shape_cs::ShapeCS, solver::SatisfyingAssignment};
-  //type PastaG1 = pasta_curves::pallas::Point;
-  //type PastaG2 = pasta_curves::vesta::Point;
-  type PastaG1 = halo2curves::bn256::Point;
-  type PastaG2 = halo2curves::grumpkin::Point;
-
+  type PastaG1 = pasta_curves::pallas::Point;
+  type PastaG2 = pasta_curves::vesta::Point;
+  
   use crate::constants::{BN_LIMB_WIDTH, BN_N_LIMBS};
   use crate::{
     bellperson::r1cs::{NovaShape, NovaWitness},
@@ -473,7 +471,7 @@ mod tests {
   }
 
   #[test]
-  fn test_recursive_circuit() {
+  fn test_recursive_circuit_pasta() {
     let params1 = NovaAugmentedCircuitParams::new(BN_LIMB_WIDTH, BN_N_LIMBS, true);
     let params2 = NovaAugmentedCircuitParams::new(BN_LIMB_WIDTH, BN_N_LIMBS, false);
     let ro_consts1: ROConstantsCircuit<PastaG2> = PoseidonConstantsCircuit::new();
@@ -481,6 +479,18 @@ mod tests {
 
     test_recursive_circuit_with::<PastaG1, PastaG2>(
       params1, params2, ro_consts1, ro_consts2, 9815, 10347,
+    );
+  }
+
+  #[test]
+  fn test_recursive_circuit_grumpkin() {
+    let params1 = NovaAugmentedCircuitParams::new(BN_LIMB_WIDTH, BN_N_LIMBS, true);
+    let params2 = NovaAugmentedCircuitParams::new(BN_LIMB_WIDTH, BN_N_LIMBS, false);
+    let ro_consts1: ROConstantsCircuit<halo2curves::grumpkin::Point> = PoseidonConstantsCircuit::new();
+    let ro_consts2: ROConstantsCircuit<halo2curves::bn256::Point> = PoseidonConstantsCircuit::new();
+
+    test_recursive_circuit_with::<halo2curves::bn256::Point, halo2curves::grumpkin::Point>(
+      params1, params2, ro_consts1, ro_consts2, 9983, 10536,
     );
   }
 }

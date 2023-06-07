@@ -206,7 +206,8 @@ mod tests {
     gadgets::utils::le_bits_to_num, traits::Group,
   };
   use ff::Field;
-  use rand::rngs::OsRng;
+  use halo2curves::bn256;
+use rand::rngs::OsRng;
 
   fn test_poseidon_ro_with<G: Group>()
   where
@@ -242,8 +243,8 @@ mod tests {
 
   #[test]
   fn test_poseidon_ro() {
-    type G = pasta_curves::pallas::Point;
-
-    test_poseidon_ro_with::<G>()
+    test_poseidon_ro_with::<pasta_curves::pallas::Point>();
+  
+    test_poseidon_ro_with::<bn256::Point>();
   }
 }
