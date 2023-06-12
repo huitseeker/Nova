@@ -36,8 +36,8 @@ use constants::{BN_LIMB_WIDTH, BN_N_LIMBS, NUM_FE_WITHOUT_IO_FOR_CRHF, NUM_HASH_
 use core::marker::PhantomData;
 use errors::NovaError;
 use ff::Field;
-use flate2::{write::ZlibEncoder, Compression};
 use gadgets::utils::scalar_as_base;
+use libdeflater::{Compressor, CompressionLvl};
 use nifs::NIFS;
 use r1cs::{R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness};
 use serde::{Deserialize, Serialize};
@@ -757,9 +757,15 @@ type CE<G> = <G as Group>::CE;
 
 fn compute_digest<G: Group, T: Serialize>(o: &T) -> G::Scalar {
   // obtain a vector of bytes representing public parameters
-  let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-  bincode::serialize_into(&mut encoder, o).unwrap();
-  let pp_bytes = encoder.finish().unwrap();
+  let bytes = bincode::serialize(o).unwrap();
+  let mut compressor = Compressor::new(CompressionLvl::new(6).unwrap());
+  let max_sz = compressor.zlib_compress_bound(bytes.len());
+  let mut compressed_bytes = Vec::new();
+  compressed_bytes.resize(max_sz, 0);
+  let actual_sz = compressor.zlib_compress(&bytes, &mut compressed_bytes).unwrap();
+  compressed_bytes.resize(actual_sz, 0);
+  
+  let pp_bytes = compressed_bytes;
 
   // convert pp_bytes into a short digest
   let mut hasher = Sha3_256::new();
