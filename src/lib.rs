@@ -798,11 +798,11 @@ mod tests {
   type S2Prime<G2> = spartan::pp::RelaxedR1CSSNARK<G2, EE2<G2>>;
 
   use ::bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
-  use core::marker::PhantomData;
+  use core::{marker::PhantomData,};
   use ff::PrimeField;
   use traits::circuit::TrivialTestCircuit;
 
-  #[derive(Clone, Debug, Default)]
+  #[derive(Clone, Debug, Default, Serialize)]
   struct CubicCircuit<F: PrimeField> {
     _p: PhantomData<F>,
   }
@@ -849,6 +849,22 @@ mod tests {
     fn output(&self, z: &[F]) -> Vec<F> {
       vec![z[0] * z[0] * z[0] + z[0] + F::from(5u64)]
     }
+  }
+
+  fn test_compute_digest_with<G: Group>(expected: &str) {
+    let test_circuit: CubicCircuit<_> = CubicCircuit::<G::Scalar>::default();
+    let digest = compute_digest::<G, CubicCircuit<G::Scalar>>(&test_circuit).to_repr();
+    let digest_str = digest.as_ref().iter()
+      .map(|b| format!("{:02x}", b).to_string())
+      .collect::<Vec<String>>()
+      .join("");
+
+    assert_eq!(digest_str, expected);
+  }
+
+  #[test]
+  fn test_compute_digest(){
+    test_compute_digest_with::<pasta_curves::pallas::Point>("64d33b54f1d3e0ab526db5138a017042b4e0018bcf097ce2aa2b8ef7b3de8f03");
   }
 
   fn test_ivc_trivial_with<G1, G2>()

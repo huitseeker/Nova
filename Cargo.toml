@@ -40,6 +40,7 @@ pasta-msm = { version = "0.1.4" }
 criterion = "0.3.1"
 rand = "0.8.4"
 hex = "0.4.3"
+hex-slice = "0.1.4"
 
 [[bench]]
 name = "recursive-snark"
