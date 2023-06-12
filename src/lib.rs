@@ -33,10 +33,12 @@ use crate::bellperson::{
 use ::bellperson::{Circuit, ConstraintSystem};
 use circuit::{NovaAugmentedCircuit, NovaAugmentedCircuitInputs, NovaAugmentedCircuitParams};
 use constants::{BN_LIMB_WIDTH, BN_N_LIMBS, NUM_FE_WITHOUT_IO_FOR_CRHF, NUM_HASH_BITS};
+use gzp::{deflate::Zlib,  ZBuilder};
 use core::marker::PhantomData;
+use std::sync::{Arc, Mutex};
 use errors::NovaError;
 use ff::Field;
-use flate2::{write::ZlibEncoder, Compression};
+use flate2::{ Compression};
 use gadgets::utils::scalar_as_base;
 use nifs::NIFS;
 use r1cs::{R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness};
@@ -755,15 +757,57 @@ type Commitment<G> = <<G as Group>::CE as CommitmentEngineTrait<G>>::Commitment;
 type CompressedCommitment<G> = <<<G as Group>::CE as CommitmentEngineTrait<G>>::Commitment as CommitmentTrait<G>>::CompressedCommitment;
 type CE<G> = <G as Group>::CE;
 
+// Private module for internal use of fast digest computation
+mod parwriter {
+  use std::{
+    io::{self, Write},
+    sync::{Arc, Mutex},
+  };
+  
+  pub struct ParWriter<W: Write> {
+     inner: Arc<Mutex<W>>,
+  }
+  
+  impl<W: Write> ParWriter<W> {
+    #[inline]
+    pub fn new(writer: Arc<Mutex<W>>) -> ParWriter<W> {
+      ParWriter {
+        inner: writer
+      }
+    }
+  }
+  
+  impl<W: Write> Write for ParWriter<W> {
+    #[inline]
+    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
+      self.inner.lock().unwrap().write(buf)
+    }
+    
+    #[inline]
+    fn flush(&mut self) -> Result<(), io::Error> {
+      self.inner.lock().unwrap().flush()
+    }
+  }
+}
+
 fn compute_digest<G: Group, T: Serialize>(o: &T) -> G::Scalar {
   // obtain a vector of bytes representing public parameters
-  let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+  let num_threads = rayon::current_num_threads();
+
+  let v = Arc::new(Mutex::new(Vec::new()));
+  let parwriter = parwriter::ParWriter::new(v.clone());
+
+  let mut encoder = ZBuilder::<Zlib, _>::new().compression_level(Compression::default())
+      .num_threads(num_threads)
+      .from_writer(parwriter);
+  
+  // let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
   bincode::serialize_into(&mut encoder, o).unwrap();
-  let pp_bytes = encoder.finish().unwrap();
+  encoder.finish().unwrap();
 
   // convert pp_bytes into a short digest
   let mut hasher = Sha3_256::new();
-  hasher.input(&pp_bytes);
+  hasher.input(&v.lock().unwrap()[..]);
   let digest = hasher.result();
 
   // truncate the digest to NUM_HASH_BITS bits
