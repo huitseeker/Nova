@@ -102,7 +102,7 @@ where
     true
   }
 
-  fn extend(&mut self, other: Self) {
+  fn extend(&mut self, other: &Self) {
     self.input_assignment
             // Skip first input, which must have been a temporarily allocated one variable.
             .extend(&other.input_assignment[1..]);
