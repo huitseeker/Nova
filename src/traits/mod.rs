@@ -236,12 +236,7 @@ pub trait PrimeFieldExt: PrimeField {
 
 impl<G: Group, T: TranscriptReprTrait<G>> TranscriptReprTrait<G> for &[T] {
   fn to_transcript_bytes(&self) -> Vec<u8> {
-    (0..self.len())
-      .map(|i| self[i].to_transcript_bytes())
-      .collect::<Vec<_>>()
-      .into_iter()
-      .flatten()
-      .collect::<Vec<u8>>()
+    self.iter().flat_map(|x| x.to_transcript_bytes()).collect::<Vec<u8>>()
   }
 }
 
