@@ -276,7 +276,7 @@ where
       r_U_secondary,
       l_w_secondary,
       l_u_secondary,
-      i: 0,
+      i: 1,
       zi_primary,
       zi_secondary,
       _p_c1: Default::default(),
@@ -296,12 +296,6 @@ where
   ) -> Result<(), NovaError> {
     if z0_primary.len() != pp.F_arity_primary || z0_secondary.len() != pp.F_arity_secondary {
       return Err(NovaError::InvalidInitialInputLength);
-    }
-
-    // Frist step was already done in the constructor
-    if self.i == 0 {
-      self.i = 1;
-      return Ok(());
     }
 
     // fold the secondary circuit's instance
@@ -916,7 +910,8 @@ mod tests {
     let num_steps = 1;
 
     // produce a recursive SNARK
-    let mut recursive_snark = RecursiveSNARK::new(
+    // let mut recursive_snark = ...
+    let recursive_snark = RecursiveSNARK::new(
       &pp,
       &test_circuit1,
       &test_circuit2,
@@ -924,6 +919,7 @@ mod tests {
       vec![<G2 as Group>::Scalar::ZERO],
     );
 
+    /*
     let res = recursive_snark.prove_step(
       &pp,
       &test_circuit1,
@@ -933,6 +929,7 @@ mod tests {
     );
 
     assert!(res.is_ok());
+    */
 
     // verify the recursive SNARK
     let res = recursive_snark.verify(
@@ -983,7 +980,7 @@ mod tests {
       vec![<G2 as Group>::Scalar::ZERO],
     );
 
-    for i in 0..num_steps {
+    for i in 1..num_steps {
       let res = recursive_snark.prove_step(
         &pp,
         &circuit_primary,
@@ -1069,7 +1066,7 @@ mod tests {
       vec![<G2 as Group>::Scalar::ZERO],
     );
 
-    for _i in 0..num_steps {
+    for _i in 1..num_steps {
       let res = recursive_snark.prove_step(
         &pp,
         &circuit_primary,
@@ -1163,7 +1160,7 @@ mod tests {
       vec![<G2 as Group>::Scalar::ZERO],
     );
 
-    for _i in 0..num_steps {
+    for _i in 1..num_steps {
       let res = recursive_snark.prove_step(
         &pp,
         &circuit_primary,
@@ -1343,7 +1340,7 @@ mod tests {
       z0_secondary.clone(),
     );
 
-    for circuit_primary in roots.iter().take(num_steps) {
+    for circuit_primary in roots.iter().take(num_steps).skip(1) {
       let res = recursive_snark.prove_step(
         &pp,
         circuit_primary,
@@ -1398,7 +1395,8 @@ mod tests {
     let num_steps = 1;
 
     // produce a recursive SNARK
-    let mut recursive_snark = RecursiveSNARK::<
+    // let mur recursive_snark = ...
+    let recursive_snark = RecursiveSNARK::<
       G1,
       G2,
       TrivialTestCircuit<<G1 as Group>::Scalar>,
@@ -1411,6 +1409,7 @@ mod tests {
       vec![<G2 as Group>::Scalar::ZERO],
     );
 
+    /*
     // produce a recursive SNARK
     let res = recursive_snark.prove_step(
       &pp,
@@ -1421,13 +1420,14 @@ mod tests {
     );
 
     assert!(res.is_ok());
+    */
 
     // verify the recursive SNARK
     let res = recursive_snark.verify(
       &pp,
       num_steps,
-      &vec![<G1 as Group>::Scalar::ONE][..],
-      &vec![<G2 as Group>::Scalar::ZERO][..],
+      &[<G1 as Group>::Scalar::ONE],
+      &[<G2 as Group>::Scalar::ZERO],
     );
     assert!(res.is_ok());
 
