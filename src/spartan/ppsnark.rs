@@ -1194,13 +1194,13 @@ impl<G: Group, EE: EvaluationEngineTrait<G, CE = G::CE>> RelaxedR1CSSNARKTrait<G
     };
     let eval_input_vec = mem_sc_inst
       .input_vec
-      .iter()
+      .par_iter()
       .map(|i| MultilinearPolynomial::evaluate_with(i, &rand_ext[1..]))
       .collect::<Vec<G::Scalar>>();
 
     let eval_output2_vec = mem_sc_inst
       .output_vec
-      .iter()
+      .par_iter()
       .map(|o| MultilinearPolynomial::evaluate_with(o, &rand_ext[1..]))
       .collect::<Vec<G::Scalar>>();
 
