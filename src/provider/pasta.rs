@@ -8,7 +8,6 @@ use crate::{
   },
   traits::{CompressedGroup, Group, PrimeFieldExt, TranscriptReprTrait},
 };
-use digest::{ExtendableOutput, Update};
 use ff::{FromUniformBytes, PrimeField};
 use num_bigint::BigInt;
 use num_traits::Num;
@@ -20,8 +19,7 @@ use pasta_curves::{
 };
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use sha3::Shake256;
-use std::io::Read;
+use tiny_keccak::{Shake, Hasher, Xof};
 
 /// A wrapper for compressed group elements of pallas
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -96,13 +94,13 @@ macro_rules! impl_traits {
       }
 
       fn from_label(label: &'static [u8], n: usize) -> Vec<Self::PreprocessedGroupElement> {
-        let mut shake = Shake256::default();
+        let mut shake = Shake::v256();
         shake.update(label);
-        let mut reader = shake.finalize_xof();
+
         let mut uniform_bytes_vec = Vec::new();
         for _ in 0..n {
           let mut uniform_bytes = [0u8; 32];
-          reader.read_exact(&mut uniform_bytes).unwrap();
+          shake.squeeze(&mut uniform_bytes);
           uniform_bytes_vec.push(uniform_bytes);
         }
         let ck_proj: Vec<$name_curve> = (0..n)
@@ -229,13 +227,13 @@ mod tests {
   type G = pasta_curves::pallas::Point;
 
   fn from_label_serial(label: &'static [u8], n: usize) -> Vec<EpAffine> {
-    let mut shake = Shake256::default();
+    let mut shake = Shake::v256();
     shake.update(label);
-    let mut reader = shake.finalize_xof();
+
     let mut ck = Vec::new();
     for _ in 0..n {
       let mut uniform_bytes = [0u8; 32];
-      reader.read_exact(&mut uniform_bytes).unwrap();
+      shake.squeeze(&mut uniform_bytes);
       let hash = Ep::hash_to_curve("from_uniform_bytes");
       ck.push(hash(&uniform_bytes).to_affine());
     }

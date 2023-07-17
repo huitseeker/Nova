@@ -5,7 +5,7 @@ use crate::{
   traits::{Group, TranscriptEngineTrait, TranscriptReprTrait},
 };
 use core::marker::PhantomData;
-use sha3::{Digest, Keccak256};
+use tiny_keccak::{Hasher, Keccak};
 
 const PERSONA_TAG: &[u8] = b"NoTR";
 const DOM_SEP_TAG: &[u8] = b"NoDS";
@@ -14,15 +14,15 @@ const KECCAK256_PREFIX_CHALLENGE_LO: u8 = 0;
 const KECCAK256_PREFIX_CHALLENGE_HI: u8 = 1;
 
 /// Provides an implementation of TranscriptEngine
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Keccak256Transcript<G: Group> {
   round: u16,
   state: [u8; KECCAK256_STATE_SIZE],
-  transcript: Keccak256,
+  transcript: Keccak,
   _p: PhantomData<G>,
 }
 
-fn compute_updated_state(keccak_instance: Keccak256, input: &[u8]) -> [u8; KECCAK256_STATE_SIZE] {
+fn compute_updated_state(keccak_instance: Keccak, input: &[u8]) -> [u8; KECCAK256_STATE_SIZE] {
   let mut updated_instance = keccak_instance;
   updated_instance.update(input);
 
@@ -35,11 +35,11 @@ fn compute_updated_state(keccak_instance: Keccak256, input: &[u8]) -> [u8; KECCA
   hasher_lo.update(input_lo);
   hasher_hi.update(input_hi);
 
-  let output_lo = hasher_lo.finalize();
-  let output_hi = hasher_hi.finalize();
+  let mut outputs = [0u8;64];
+  hasher_lo.finalize(&mut outputs[..32]);
+  hasher_hi.finalize(&mut outputs[32..]);
 
-  [output_lo, output_hi]
-    .concat()
+  outputs
     .as_slice()
     .try_into()
     .unwrap()
@@ -47,7 +47,7 @@ fn compute_updated_state(keccak_instance: Keccak256, input: &[u8]) -> [u8; KECCA
 
 impl<G: Group> TranscriptEngineTrait<G> for Keccak256Transcript<G> {
   fn new(label: &'static [u8]) -> Self {
-    let keccak_instance = Keccak256::new();
+    let keccak_instance = Keccak::v256();
     let input = [PERSONA_TAG, label].concat();
     let output = compute_updated_state(keccak_instance.clone(), &input);
 
@@ -79,7 +79,7 @@ impl<G: Group> TranscriptEngineTrait<G> for Keccak256Transcript<G> {
       }
     };
     self.state.copy_from_slice(&output);
-    self.transcript = Keccak256::new();
+    self.transcript = Keccak::v256();
 
     // squeeze out a challenge
     Ok(G::Scalar::from_uniform(&output))
@@ -105,7 +105,7 @@ mod tests {
   };
   use ff::PrimeField;
   use rand::Rng;
-  use sha3::{Digest, Keccak256};
+  use tiny_keccak::{Hasher, Keccak};
 
   fn test_keccak_transcript_with<G: Group>(expected_h1: &'static str, expected_h2: &'static str) {
     let mut transcript: Keccak256Transcript<G> = Keccak256Transcript::new(b"test");
@@ -148,9 +148,10 @@ mod tests {
 
   #[test]
   fn test_keccak_example() {
-    let mut hasher = Keccak256::new();
-    hasher.update(0xffffffff_u32.to_le_bytes());
-    let output: [u8; 32] = hasher.finalize().try_into().unwrap();
+    let mut hasher = Keccak::v256();
+    hasher.update(&0xffffffff_u32.to_le_bytes()[..]);
+    let mut output = [0u8; 32];
+    hasher.finalize(&mut output);
     assert_eq!(
       hex::encode(output),
       "29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238"
@@ -166,17 +167,17 @@ mod tests {
     let input_lo = [input, &[KECCAK256_PREFIX_CHALLENGE_LO]].concat();
     let input_hi = [input, &[KECCAK256_PREFIX_CHALLENGE_HI]].concat();
 
-    let mut hasher_lo = Keccak256::new();
-    let mut hasher_hi = Keccak256::new();
+    let mut hasher_lo = Keccak::v256();
+    let mut hasher_hi = Keccak::v256();
 
     hasher_lo.update(&input_lo);
     hasher_hi.update(&input_hi);
 
-    let output_lo = hasher_lo.finalize();
-    let output_hi = hasher_hi.finalize();
+    let mut outputs = [0u8;64];
+    hasher_lo.finalize(&mut outputs[..32]);
+    hasher_hi.finalize(&mut outputs[32..]);
 
-    [output_lo, output_hi]
-      .concat()
+    outputs
       .as_slice()
       .try_into()
       .unwrap()

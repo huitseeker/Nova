@@ -33,6 +33,7 @@ use crate::bellperson::{
 use ::bellperson::{Circuit, ConstraintSystem};
 use circuit::{NovaAugmentedCircuit, NovaAugmentedCircuitInputs, NovaAugmentedCircuitParams};
 use constants::{BN_LIMB_WIDTH, BN_N_LIMBS, NUM_FE_WITHOUT_IO_FOR_CRHF, NUM_HASH_BITS};
+use tiny_keccak::{Sha3, Hasher};
 use core::marker::PhantomData;
 use errors::NovaError;
 use ff::Field;
@@ -40,7 +41,6 @@ use gadgets::utils::scalar_as_base;
 use nifs::NIFS;
 use r1cs::{R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness};
 use serde::{Deserialize, Serialize};
-use sha3::{Digest, Sha3_256};
 use traits::{
   circuit::StepCircuit,
   commitment::{CommitmentEngineTrait, CommitmentTrait},
@@ -768,9 +768,10 @@ fn compute_digest<G: Group, T: Serialize>(o: &T) -> G::Scalar {
   // obtain a vector of bytes representing public parameters
   let bytes = bincode::serialize(o).unwrap();
   // convert pp_bytes into a short digest
-  let mut hasher = Sha3_256::new();
+  let mut hasher = Sha3::v256();
   hasher.update(&bytes);
-  let digest = hasher.finalize();
+  let mut digest = [0u8; 32];
+  hasher.finalize(&mut digest);
 
   // truncate the digest to NUM_HASH_BITS bits
   let bv = (0..NUM_HASH_BITS).map(|i| {

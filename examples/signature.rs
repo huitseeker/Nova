@@ -14,7 +14,7 @@ use pasta_curves::{
   group::{Curve, Group},
 };
 use rand::{rngs::OsRng, RngCore};
-use sha3::{Digest, Sha3_512};
+use tiny_keccak::{Hasher, Sha3};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SecretKey<G: Group>(G::Scalar);
@@ -99,11 +99,12 @@ where
   }
 
   pub fn hash_to_scalar(persona: &[u8], a: &[u8], b: &[u8]) -> G::Scalar {
-    let mut hasher = Sha3_512::new();
+    let mut hasher = Sha3::v512();
     hasher.update(persona);
     hasher.update(a);
     hasher.update(b);
-    let digest = hasher.finalize();
+    let mut digest = [0u8;32];
+    hasher.finalize(&mut digest);
     Self::to_uniform(digest.as_ref())
   }
 }
