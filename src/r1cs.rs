@@ -34,6 +34,7 @@ pub struct R1CSShape<G: Group> {
   pub(crate) A: Vec<(usize, usize, G::Scalar)>,
   pub(crate) B: Vec<(usize, usize, G::Scalar)>,
   pub(crate) C: Vec<(usize, usize, G::Scalar)>,
+  pub(crate) constraints_path: Option<Vec<String>>,
 }
 
 /// A type that holds a witness for a given R1CS instance
@@ -86,6 +87,7 @@ impl<G: Group> R1CSShape<G> {
     A: &[(usize, usize, G::Scalar)],
     B: &[(usize, usize, G::Scalar)],
     C: &[(usize, usize, G::Scalar)],
+    constraints_path: Option<Vec<String>>,
   ) -> Result<R1CSShape<G>, NovaError> {
     let is_valid = |num_cons: usize,
                     num_vars: usize,
@@ -127,6 +129,7 @@ impl<G: Group> R1CSShape<G> {
       num_cons,
       num_vars,
       num_io,
+      constraints_path,
       A: A.to_owned(),
       B: B.to_owned(),
       C: C.to_owned(),
@@ -182,19 +185,23 @@ impl<G: Group> R1CSShape<G> {
     assert_eq!(U.X.len(), self.num_io);
 
     // verify if Az * Bz = u*Cz + E
-    let res_eq: bool = {
+    let res_eq: Result<(), NovaError> = {
       let z = concat(vec![W.W.clone(), vec![U.u], U.X.clone()]);
       let (Az, Bz, Cz) = self.multiply_vec(&z)?;
       assert_eq!(Az.len(), self.num_cons);
       assert_eq!(Bz.len(), self.num_cons);
       assert_eq!(Cz.len(), self.num_cons);
 
-      let res: usize = (0..self.num_cons)
-        .map(|i| usize::from(Az[i] * Bz[i] != U.u * Cz[i] + W.E[i]))
-        .sum();
-
-      res == 0
+      (0..self.num_cons).try_for_each(|i| {
+        if Az[i] * Bz[i] != U.u * Cz[i] + W.E[i] {
+          // constraint failed
+          Err(self._get_constraint_err_by_index(i))
+        } else {
+          Ok(())
+        }
+      })
     };
+    res_eq?;
 
     // verify if comm_E and comm_W are commitments to E and W
     let res_comm: bool = {
@@ -203,11 +210,10 @@ impl<G: Group> R1CSShape<G> {
       U.comm_W == comm_W && U.comm_E == comm_E
     };
 
-    if res_eq && res_comm {
-      Ok(())
-    } else {
-      Err(NovaError::UnSat)
+    if !res_comm {
+      return Err(NovaError::UnSat);
     }
+    Ok(())
   }
 
   /// Checks if the R1CS instance is satisfiable given a witness and its shape
@@ -221,28 +227,31 @@ impl<G: Group> R1CSShape<G> {
     assert_eq!(U.X.len(), self.num_io);
 
     // verify if Az * Bz = u*Cz
-    let res_eq: bool = {
+    let res_eq: Result<(), NovaError> = {
       let z = concat(vec![W.W.clone(), vec![G::Scalar::ONE], U.X.clone()]);
       let (Az, Bz, Cz) = self.multiply_vec(&z)?;
       assert_eq!(Az.len(), self.num_cons);
       assert_eq!(Bz.len(), self.num_cons);
       assert_eq!(Cz.len(), self.num_cons);
 
-      let res: usize = (0..self.num_cons)
-        .map(|i| usize::from(Az[i] * Bz[i] != Cz[i]))
-        .sum();
-
-      res == 0
+      (0..self.num_cons).try_for_each(|i| {
+        if Az[i] * Bz[i] != Cz[i] {
+          // constraint failed, retrieve constaint name
+          Err(self._get_constraint_err_by_index(i))
+        } else {
+          Ok(())
+        }
+      })
     };
+    res_eq?;
 
     // verify if comm_W is a commitment to W
     let res_comm: bool = U.comm_W == CE::<G>::commit(ck, &W.W);
 
-    if res_eq && res_comm {
-      Ok(())
-    } else {
-      Err(NovaError::UnSat)
+    if !res_comm {
+      return Err(NovaError::UnSat);
     }
+    Ok(())
   }
 
   /// A method to compute a commitment to the cross-term `T` given a
@@ -313,6 +322,7 @@ impl<G: Group> R1CSShape<G> {
         num_cons: m,
         num_vars: m,
         num_io: self.num_io,
+        constraints_path: self.constraints_path.clone(),
         A: self.A.clone(),
         B: self.B.clone(),
         C: self.C.clone(),
@@ -346,9 +356,25 @@ impl<G: Group> R1CSShape<G> {
       num_cons: num_cons_padded,
       num_vars: num_vars_padded,
       num_io: self.num_io,
+      constraints_path: self.constraints_path.clone(),
       A: A_padded,
       B: B_padded,
       C: C_padded,
+    }
+  }
+
+  fn _get_constraint_err_by_index(&self, index: usize) -> NovaError {
+    // error
+    if let Some(constraints_path) = &self.constraints_path {
+      NovaError::UnSatMsg(format!(
+        "is_relaxed_sat relation failed at constraint path {:?}",
+        constraints_path
+          .get(index)
+          .clone()
+          .unwrap_or(&"".to_string())
+      ))
+    } else {
+      NovaError::UnSat
     }
   }
 }

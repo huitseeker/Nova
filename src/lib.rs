@@ -41,6 +41,7 @@ use nifs::NIFS;
 use r1cs::{R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness};
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
+use tap::TapFallible;
 use traits::{
   circuit::StepCircuit,
   commitment::{CommitmentEngineTrait, CommitmentTrait},
@@ -64,10 +65,12 @@ where
   ro_consts_circuit_primary: ROConstantsCircuit<G2>,
   ck_primary: CommitmentKey<G1>,
   r1cs_shape_primary: R1CSShape<G1>,
+  constraints_path_primary: Vec<String>,
   ro_consts_secondary: ROConstants<G2>,
   ro_consts_circuit_secondary: ROConstantsCircuit<G1>,
   ck_secondary: CommitmentKey<G2>,
   r1cs_shape_secondary: R1CSShape<G2>,
+  constraints_path_secondary: Vec<String>,
   augmented_circuit_params_primary: NovaAugmentedCircuitParams,
   augmented_circuit_params_secondary: NovaAugmentedCircuitParams,
   digest: G1::Scalar, // digest of everything else with this field set to G1::Scalar::ZERO
@@ -109,6 +112,11 @@ where
     let mut cs: ShapeCS<G1> = ShapeCS::new();
     let _ = circuit_primary.synthesize(&mut cs);
     let (r1cs_shape_primary, ck_primary) = cs.r1cs_shape();
+    let constraints_path_primary = cs
+      .constraints
+      .iter()
+      .map(|constraint| constraint.3.clone())
+      .collect();
 
     // Initialize ck for the secondary
     let circuit_secondary: NovaAugmentedCircuit<G1, C2> = NovaAugmentedCircuit::new(
@@ -119,6 +127,11 @@ where
     );
     let mut cs: ShapeCS<G2> = ShapeCS::new();
     let _ = circuit_secondary.synthesize(&mut cs);
+    let constraints_path_secondary = cs
+      .constraints
+      .iter()
+      .map(|constraint| constraint.3.clone())
+      .collect();
     let (r1cs_shape_secondary, ck_secondary) = cs.r1cs_shape();
 
     let mut pp = Self {
@@ -128,10 +141,12 @@ where
       ro_consts_circuit_primary,
       ck_primary,
       r1cs_shape_primary,
+      constraints_path_primary,
       ro_consts_secondary,
       ro_consts_circuit_secondary,
       ck_secondary,
       r1cs_shape_secondary,
+      constraints_path_secondary,
       augmented_circuit_params_primary,
       augmented_circuit_params_secondary,
       digest: G1::Scalar::ZERO,
@@ -225,6 +240,7 @@ where
     let _ = circuit_primary.synthesize(&mut cs_primary);
     let (u_primary, w_primary) = cs_primary
       .r1cs_instance_and_witness(&pp.r1cs_shape_primary, &pp.ck_primary)
+      .tap_err(|e| eprintln!("Nova UnSat: {:?}", e))
       .map_err(|_e| NovaError::UnSat)
       .expect("Nova error unsat");
 
@@ -248,6 +264,7 @@ where
     let _ = circuit_secondary.synthesize(&mut cs_secondary);
     let (u_secondary, w_secondary) = cs_secondary
       .r1cs_instance_and_witness(&pp.r1cs_shape_secondary, &pp.ck_secondary)
+      .tap_err(|e| eprintln!("Nova UnSat: {:?}", e))
       .map_err(|_e| NovaError::UnSat)
       .expect("Nova error unsat");
 
@@ -338,6 +355,7 @@ where
 
     let (l_u_primary, l_w_primary) = cs_primary
       .r1cs_instance_and_witness(&pp.r1cs_shape_primary, &pp.ck_primary)
+      .tap_err(|e| eprintln!("Nova UnSat: {:?}", e))
       .map_err(|_e| NovaError::UnSat)
       .expect("Nova error unsat");
 
@@ -375,6 +393,7 @@ where
 
     let (l_u_secondary, l_w_secondary) = cs_secondary
       .r1cs_instance_and_witness(&pp.r1cs_shape_secondary, &pp.ck_secondary)
+      .tap_err(|e| eprintln!("Nova UnSat: {:?}", e))
       .map_err(|_e| NovaError::UnSat)?;
 
     // update the running instances and witnesses
@@ -466,24 +485,33 @@ where
     // check the satisfiability of the provided instances
     let (res_r_primary, (res_r_secondary, res_l_secondary)) = rayon::join(
       || {
-        pp.r1cs_shape_primary
-          .is_sat_relaxed(&pp.ck_primary, &self.r_U_primary, &self.r_W_primary)
+        let res = pp.r1cs_shape_primary.is_sat_relaxed(
+          &pp.ck_primary,
+          &self.r_U_primary,
+          &self.r_W_primary,
+        );
+        eprintln!("satisfiability of primary: {:?}", res.is_ok());
+        res
       },
       || {
         rayon::join(
           || {
-            pp.r1cs_shape_secondary.is_sat_relaxed(
+            let res = pp.r1cs_shape_secondary.is_sat_relaxed(
               &pp.ck_secondary,
               &self.r_U_secondary,
               &self.r_W_secondary,
-            )
+            );
+            eprintln!("satisfiability of secondary: {:?}", res.is_ok());
+            res
           },
           || {
-            pp.r1cs_shape_secondary.is_sat(
+            let res = pp.r1cs_shape_secondary.is_sat(
               &pp.ck_secondary,
               &self.l_u_secondary,
               &self.l_w_secondary,
-            )
+            );
+            eprintln!("satisfiability of R1CS secondary: {:?}", res.is_ok());
+            res
           },
         )
       },

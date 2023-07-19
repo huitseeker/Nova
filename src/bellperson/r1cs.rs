@@ -56,6 +56,7 @@ where
     let mut A: Vec<(usize, usize, G::Scalar)> = Vec::new();
     let mut B: Vec<(usize, usize, G::Scalar)> = Vec::new();
     let mut C: Vec<(usize, usize, G::Scalar)> = Vec::new();
+    let mut constraints_path: Vec<String> = Vec::new();
 
     let mut num_cons_added = 0;
     let mut X = (&mut A, &mut B, &mut C, &mut num_cons_added);
@@ -72,13 +73,22 @@ where
         &constraint.1,
         &constraint.2,
       );
+      constraints_path.push(constraint.3.clone());
     }
 
     assert_eq!(num_cons_added, num_constraints);
 
     let S: R1CSShape<G> = {
       // Don't count One as an input for shape's purposes.
-      let res = R1CSShape::new(num_constraints, num_vars, num_inputs - 1, &A, &B, &C);
+      let res = R1CSShape::new(
+        num_constraints,
+        num_vars,
+        num_inputs - 1,
+        &A,
+        &B,
+        &C,
+        Some(constraints_path),
+      );
       res.unwrap()
     };
 
