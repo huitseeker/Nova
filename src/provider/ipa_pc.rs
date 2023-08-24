@@ -1,7 +1,7 @@
 //! This module implements `EvaluationEngine` using an IPA-based polynomial commitment scheme
 #![allow(clippy::too_many_arguments)]
 use crate::{
-  errors::NovaError,
+  errors::{NovaError, PCSError},
   provider::pedersen::CommitmentKeyExtTrait,
   spartan::polynomial::EqPolynomial,
   traits::{
@@ -415,7 +415,7 @@ where
     if P_hat == CE::<G>::commit(&ck_hat.combine(&ck_c), &[self.a_hat, self.a_hat * b_hat]) {
       Ok(())
     } else {
-      Err(NovaError::InvalidIPA)
+      Err(NovaError::PCSError(PCSError::InvalidIPA))
     }
   }
 }
