@@ -309,6 +309,12 @@ pub struct UniPoly<Scalar: PrimeField> {
   pub coeffs: Vec<Scalar>,
 }
 
+impl<Scalar: PrimeField> AsRef<Vec<Scalar>> for UniPoly<Scalar> {
+  fn as_ref(&self) -> &Vec<Scalar> {
+    &self.coeffs
+  }
+}
+
 // ax^2 + bx + c stored as vec![a,c]
 // ax^3 + bx^2 + cx + d stored as vec![a,c,d]
 #[derive(Clone, Debug, Serialize, Deserialize)]
