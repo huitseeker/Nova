@@ -7,7 +7,7 @@
 use crate::{
   digest::{DigestBuilder, HasDigest, SimpleDigestible},
   errors::NovaError,
-  r1cs::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
+  r1cs::{sparse::SparseMatrix, R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
   spartan::{
     polys::{eq::EqPolynomial, multilinear::MultilinearPolynomial, multilinear::SparsePolynomial},
     powers,
@@ -19,6 +19,7 @@ use crate::{
   },
   Commitment, CommitmentKey,
 };
+
 use abomonation::Abomonation;
 use abomonation_derive::Abomonation;
 use ff::Field;
@@ -195,9 +196,9 @@ where
         |S: &R1CSShape<G>, rx: &[G::Scalar]| -> (Vec<G::Scalar>, Vec<G::Scalar>, Vec<G::Scalar>) {
           assert_eq!(rx.len(), S.num_cons);
 
-          let inner = |M: &Vec<(usize, usize, G::Scalar)>, M_evals: &mut Vec<G::Scalar>| {
-            for (row, col, val) in M {
-              M_evals[*col] += rx[*row] * val;
+          let inner = |M: &SparseMatrix<G::Scalar>, M_evals: &mut Vec<G::Scalar>| {
+            for (row, col, val) in M.iter() {
+              M_evals[col] += rx[row] * val;
             }
           };
 
@@ -433,18 +434,14 @@ where
     };
 
     // compute evaluations of R1CS matrices
-    let multi_evaluate = |M_vec: &[&[(usize, usize, G::Scalar)]],
+    let multi_evaluate = |M_vec: &[&SparseMatrix<G::Scalar>],
                           r_x: &[G::Scalar],
                           r_y: &[G::Scalar]|
      -> Vec<G::Scalar> {
       let evaluate_with_table =
-        |M: &[(usize, usize, G::Scalar)], T_x: &[G::Scalar], T_y: &[G::Scalar]| -> G::Scalar {
-          (0..M.len())
-            .into_par_iter()
-            .map(|i| {
-              let (row, col, val) = M[i];
-              T_x[row] * T_y[col] * val
-            })
+        |M: &SparseMatrix<G::Scalar>, T_x: &[G::Scalar], T_y: &[G::Scalar]| -> G::Scalar {
+          M.iter()
+            .map(|(row, col, val)| T_x[row] * T_y[col] * val)
             .sum()
         };
 
