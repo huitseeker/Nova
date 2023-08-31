@@ -1,7 +1,5 @@
 //! This library implements SuperNova, a Non-Uniform IVC based on Nova.
-
 use std::io;
-use std::marker::PhantomData;
 use std::ops::Index;
 
 use crate::{
@@ -184,7 +182,6 @@ where
   C1: EnforcingStepCircuit<G1::Scalar>,
   C2: EnforcingStepCircuit<G2::Scalar>,
 {
-  _phantom: PhantomData<G1>,
   augmented_circuit_index: usize,
   c_primary: C1,
   c_secondary: C2,
@@ -321,7 +318,6 @@ where
 
     Self {
       augmented_circuit_index,
-      _phantom: PhantomData,
       c_primary: claim,
       c_secondary: circuit_secondary,
       params: pp,

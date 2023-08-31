@@ -318,10 +318,7 @@ impl<G: Group> R1CSShape<G> {
           .into_par_iter()
           .map(|i| U1.u * CZ_2[i])
           .collect::<Vec<G::Scalar>>();
-        let u_2_cdot_CZ_1 = (0..CZ_1.len())
-          .into_par_iter()
-          .map(|i| CZ_1[i])
-          .collect::<Vec<G::Scalar>>();
+        let u_2_cdot_CZ_1 = CZ_1;
         (AZ_1_circ_BZ_2, AZ_2_circ_BZ_1, u_1_cdot_CZ_2, u_2_cdot_CZ_1)
       });
 
