@@ -411,7 +411,7 @@ mod tests {
         };
         let U = {
           let comm_W = W.commit(ck);
-          let res = R1CSInstance::new(&S, &comm_W, X);
+          let res = R1CSInstance::new(&S, comm_W, X);
           assert!(res.is_ok());
           res.unwrap()
         };

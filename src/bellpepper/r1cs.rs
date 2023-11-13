@@ -52,7 +52,7 @@ impl<G: Group> NovaWitness<G> for SatisfyingAssignment<G> {
 
     let comm_W = W.commit(ck);
 
-    let instance = R1CSInstance::<G>::new(shape, &comm_W, X.into())?;
+    let instance = R1CSInstance::<G>::new(shape, comm_W, X.into())?;
 
     Ok((instance, W))
   }
