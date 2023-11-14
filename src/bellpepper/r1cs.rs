@@ -11,7 +11,6 @@ use crate::{
 };
 use bellpepper_core::{Index, LinearCombination};
 use ff::PrimeField;
-use vecshard::ShardExt;
 
 /// `NovaWitness` provide a method for acquiring an `R1CSInstance` and `R1CSWitness` from implementers.
 pub trait NovaWitness<G: Group> {
@@ -48,11 +47,9 @@ impl<G: Group> NovaWitness<G> for SatisfyingAssignment<G> {
 
     let W = R1CSWitness::<G>::new(shape, aux_assignment)?;
 
-    let (_, X) = input_assignment.split_inplace_at(1);
-
     let comm_W = W.commit(ck);
 
-    let instance = R1CSInstance::<G>::new(shape, comm_W, X.into())?;
+    let instance = R1CSInstance::<G>::new(shape, comm_W, input_assignment)?;
 
     Ok((instance, W))
   }
