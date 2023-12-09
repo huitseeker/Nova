@@ -16,6 +16,7 @@ use abomonation::Abomonation;
 use abomonation_derive::Abomonation;
 use ff::PrimeField;
 use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
 use std::marker::PhantomData;
 
 /// A type that holds the prover key for `CompressedSNARK`
@@ -75,7 +76,7 @@ where
 /// A SNARK that proves the knowledge of a valid `RecursiveSNARK`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct CompressedSNARK<E1, E2, C1, C2, S1, S2>
+pub struct CompressedSNARK<E1, E2, C1, C2, S1, S2, const N: usize>
 where
   E1: Engine<Base = <E2 as Engine>::Scalar>,
   E2: Engine<Base = <E1 as Engine>::Scalar>,
@@ -84,7 +85,8 @@ where
   S1: BatchedRelaxedR1CSSNARKTrait<E1>,
   S2: RelaxedR1CSSNARKTrait<E2>,
 {
-  r_U_primary: Vec<RelaxedR1CSInstance<E1>>,
+  #[serde(with = "BigArray")]
+  r_U_primary: [RelaxedR1CSInstance<E1>; N],
   r_W_snark_primary: S1,
 
   r_U_secondary: RelaxedR1CSInstance<E2>,
@@ -100,7 +102,7 @@ where
   _p: PhantomData<(E1, E2, C1, C2, S1, S2)>,
 }
 
-impl<E1, E2, C1, C2, S1, S2> CompressedSNARK<E1, E2, C1, C2, S1, S2>
+impl<E1, E2, C1, C2, S1, S2, const N: usize> CompressedSNARK<E1, E2, C1, C2, S1, S2, N>
 where
   E1: Engine<Base = <E2 as Engine>::Scalar>,
   E2: Engine<Base = <E1 as Engine>::Scalar>,
@@ -111,7 +113,7 @@ where
 {
   /// Creates prover and verifier keys for `CompressedSNARK`
   pub fn setup(
-    pp: &PublicParams<E1, E2, C1, C2>,
+    pp: &PublicParams<E1, E2, C1, C2, N>,
   ) -> Result<
     (
       ProverKey<E1, E2, C1, C2, S1, S2>,
@@ -119,7 +121,7 @@ where
     ),
     SuperNovaError,
   > {
-    let (pk_primary, vk_primary) = S1::setup(&pp.ck_primary, &pp.primary_r1cs_shapes())?;
+    let (pk_primary, vk_primary) = S1::setup::<N>(&pp.ck_primary, pp.nprimary_r1cs_shapes())?;
 
     let (pk_secondary, vk_secondary) =
       S2::setup(&pp.ck_secondary, &pp.circuit_shape_secondary.r1cs_shape)?;
@@ -140,7 +142,7 @@ where
 
   /// Create a new `CompressedSNARK`
   pub fn prove(
-    pp: &PublicParams<E1, E2, C1, C2>,
+    pp: &PublicParams<E1, E2, C1, C2, N>,
     pk: &ProverKey<E1, E2, C1, C2, S1, S2>,
     recursive_snark: &RecursiveSNARK<E1, E2>,
   ) -> Result<Self, SuperNovaError> {
@@ -166,9 +168,11 @@ where
           .clone()
           .unwrap_or_else(|| RelaxedR1CSInstance::default(&pp.ck_primary, &pp[idx].r1cs_shape))
       })
-      .collect::<Vec<_>>();
+      .collect::<Vec<_>>()
+      .try_into()
+      .map_err(|_| NovaError::InvalidInputLength)?;
 
-    let r_W_primary: Vec<RelaxedR1CSWitness<E1>> = recursive_snark
+    let r_W_primary = recursive_snark
       .r_W_primary
       .iter()
       .enumerate()
@@ -177,12 +181,14 @@ where
           .clone()
           .unwrap_or_else(|| RelaxedR1CSWitness::default(&pp[idx].r1cs_shape))
       })
-      .collect::<Vec<_>>();
+      .collect::<Vec<_>>()
+      .try_into()
+      .map_err(|_| NovaError::InvalidWitnessLength)?;
 
     let r_W_snark_primary = S1::prove(
       &pp.ck_primary,
       &pk.pk_primary,
-      &pp.primary_r1cs_shapes(),
+      pp.nprimary_r1cs_shapes(),
       &r_U_primary,
       &r_W_primary,
     )?;
@@ -204,7 +210,9 @@ where
           .clone()
           .unwrap_or_else(|| RelaxedR1CSInstance::default(&pp.ck_primary, &pp[idx].r1cs_shape))
       })
-      .collect::<Vec<_>>();
+      .collect::<Vec<_>>()
+      .try_into()
+      .map_err(|_| NovaError::InvalidInputLength)?;
 
     let compressed_snark = CompressedSNARK {
       r_U_primary,
@@ -230,7 +238,7 @@ where
   /// Verify the correctness of the `CompressedSNARK`
   pub fn verify(
     &self,
-    pp: &PublicParams<E1, E2, C1, C2>,
+    pp: &PublicParams<E1, E2, C1, C2, N>,
     vk: &VerifierKey<E1, E2, C1, C2, S1, S2>,
     z0_primary: &[E1::Scalar],
     z0_secondary: &[E2::Scalar],
@@ -488,16 +496,12 @@ mod test {
     }
   }
 
-  impl<E1, E2> NonUniformCircuit<E1, E2, TestCircuit<E1>, TrivialSecondaryCircuit<E2::Scalar>>
+  impl<E1, E2> NonUniformCircuit<E1, E2, TestCircuit<E1>, TrivialSecondaryCircuit<E2::Scalar>, 2>
     for TestCircuit<E1>
   where
     E1: Engine<Base = <E2 as Engine>::Scalar>,
     E2: Engine<Base = <E1 as Engine>::Scalar>,
   {
-    fn num_circuits(&self) -> usize {
-      2
-    }
-
     fn primary_circuit(&self, circuit_index: usize) -> TestCircuit<E1> {
       match circuit_index {
         0 => Self::Square(SquareCircuit { _p: PhantomData }),
@@ -553,7 +557,7 @@ mod test {
       assert!(verify_res.is_ok());
     }
 
-    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, S1, S2>::setup(&pp).unwrap();
+    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, S1, S2, 2>::setup(&pp).unwrap();
 
     let compressed_prove_res = CompressedSNARK::prove(&pp, &prover_key, &recursive_snark);
 
@@ -678,16 +682,12 @@ mod test {
     }
   }
 
-  impl<E1, E2> NonUniformCircuit<E1, E2, BigTestCircuit<E1>, TrivialSecondaryCircuit<E2::Scalar>>
+  impl<E1, E2> NonUniformCircuit<E1, E2, BigTestCircuit<E1>, TrivialSecondaryCircuit<E2::Scalar>, 2>
     for BigTestCircuit<E1>
   where
     E1: Engine<Base = <E2 as Engine>::Scalar>,
     E2: Engine<Base = <E1 as Engine>::Scalar>,
   {
-    fn num_circuits(&self) -> usize {
-      2
-    }
-
     fn primary_circuit(&self, circuit_index: usize) -> BigTestCircuit<E1> {
       match circuit_index {
         0 => Self::Square(SquareCircuit { _p: PhantomData }),
@@ -743,7 +743,7 @@ mod test {
       assert!(verify_res.is_ok());
     }
 
-    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, S1, S2>::setup(&pp).unwrap();
+    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, S1, S2, 2>::setup(&pp).unwrap();
 
     let compressed_prove_res = CompressedSNARK::prove(&pp, &prover_key, &recursive_snark);
 

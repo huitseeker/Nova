@@ -85,22 +85,26 @@ pub trait BatchedRelaxedR1CSSNARKTrait<E: Engine>:
   }
 
   /// Produces the keys for the prover and the verifier
-  fn setup(
+  fn setup<const N: usize>(
     ck: &CommitmentKey<E>,
-    S: &[R1CSShape<E>],
+    S: [&R1CSShape<E>; N],
   ) -> Result<(Self::ProverKey, Self::VerifierKey), NovaError>;
 
   /// Produces a new SNARK for a batch of relaxed R1CS
-  fn prove(
+  fn prove<const N: usize>(
     ck: &CommitmentKey<E>,
     pk: &Self::ProverKey,
-    S: &[R1CSShape<E>],
-    U: &[RelaxedR1CSInstance<E>],
-    W: &[RelaxedR1CSWitness<E>],
+    S: [&R1CSShape<E>; N],
+    U: &[RelaxedR1CSInstance<E>; N],
+    W: &[RelaxedR1CSWitness<E>; N],
   ) -> Result<Self, NovaError>;
 
   /// Verifies a SNARK for a batch of relaxed R1CS
-  fn verify(&self, vk: &Self::VerifierKey, U: &[RelaxedR1CSInstance<E>]) -> Result<(), NovaError>;
+  fn verify<const N: usize>(
+    &self,
+    vk: &Self::VerifierKey,
+    U: &[RelaxedR1CSInstance<E>; N],
+  ) -> Result<(), NovaError>;
 }
 
 /// A helper trait that defines the behavior of a verifier key of `zkSNARK`

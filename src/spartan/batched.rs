@@ -115,9 +115,9 @@ where
 
   type VerifierKey = VerifierKey<E, EE>;
 
-  fn setup(
+  fn setup<const N: usize>(
     ck: &CommitmentKey<E>,
-    S: &[R1CSShape<E>],
+    S: [&R1CSShape<E>; N],
   ) -> Result<(Self::ProverKey, Self::VerifierKey), NovaError> {
     let (pk_ee, vk_ee) = EE::setup(ck);
 
@@ -133,14 +133,14 @@ where
     Ok((pk, vk))
   }
 
-  fn prove(
+  fn prove<const N: usize>(
     ck: &CommitmentKey<E>,
     pk: &Self::ProverKey,
-    S: &[R1CSShape<E>],
-    U: &[RelaxedR1CSInstance<E>],
-    W: &[RelaxedR1CSWitness<E>],
+    S: [&R1CSShape<E>; N],
+    U: &[RelaxedR1CSInstance<E>; N],
+    W: &[RelaxedR1CSWitness<E>; N],
   ) -> Result<Self, NovaError> {
-    let num_instances = U.len();
+    let num_instances = N;
     // Pad shapes and ensure their sizes are correct
     let S = S
       .iter()
@@ -185,6 +185,9 @@ where
       .unzip();
     let num_rounds_x_max = *num_rounds_x.iter().max().unwrap();
     let num_rounds_y_max = *num_rounds_y.iter().max().unwrap();
+    let num_rounds_x: [_; N] = num_rounds_x
+      .try_into()
+      .map_err(|_| NovaError::InternalError)?;
 
     // Generate tau polynomial corresponding to eq(τ, τ², τ⁴ , …)
     // for a random challenge τ
@@ -221,25 +224,33 @@ where
 
     // Sample challenge for random linear-combination of outer claims
     let outer_r = transcript.squeeze(b"out_r")?;
-    let outer_r_powers = powers::<E>(&outer_r, num_instances);
+    let outer_r_powers = super::npowers::<E, N>(&outer_r);
 
     // Verify outer sumcheck: Az * Bz - uCz_E for each instance
     let (sc_proof_outer, r_x, claims_outer) = SumcheckProof::prove_cubic_with_additive_term_batch(
-      &vec![E::Scalar::ZERO; num_instances],
+      &[E::Scalar::ZERO; N],
       &num_rounds_x,
-      polys_tau,
+      polys_tau
+        .try_into()
+        .map_err(|_| NovaError::InvalidInputLength)?,
       polys_Az
         .into_iter()
         .map(MultilinearPolynomial::new)
-        .collect(),
+        .collect::<Vec<_>>()
+        .try_into()
+        .map_err(|_| NovaError::InvalidInputLength)?,
       polys_Bz
         .into_iter()
         .map(MultilinearPolynomial::new)
-        .collect(),
+        .collect::<Vec<_>>()
+        .try_into()
+        .map_err(|_| NovaError::InvalidInputLength)?,
       polys_uCz_E
         .into_iter()
         .map(MultilinearPolynomial::new)
-        .collect(),
+        .collect::<Vec<_>>()
+        .try_into()
+        .map_err(|_| NovaError::InvalidInputLength)?,
       &outer_r_powers,
       comb_func_outer,
       &mut transcript,
@@ -394,7 +405,11 @@ where
     })
   }
 
-  fn verify(&self, vk: &Self::VerifierKey, U: &[RelaxedR1CSInstance<E>]) -> Result<(), NovaError> {
+  fn verify<const N: usize>(
+    &self,
+    vk: &Self::VerifierKey,
+    U: &[RelaxedR1CSInstance<E>; N],
+  ) -> Result<(), NovaError> {
     let num_instances = U.len();
     let mut transcript = E::TE::new(b"BatchedRelaxedR1CSSNARK");
 

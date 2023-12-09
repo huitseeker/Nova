@@ -60,7 +60,7 @@ use traits::{
 };
 
 /// A type that holds parameters for the primary and secondary circuits of Nova and SuperNova
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Abomonation)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Abomonation)]
 #[serde(bound = "")]
 #[abomonation_bounds(where <E::Scalar as PrimeField>::Repr: Abomonation)]
 pub struct CircuitShape<E: Engine> {

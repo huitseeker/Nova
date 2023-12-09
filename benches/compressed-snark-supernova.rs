@@ -76,17 +76,13 @@ where
 }
 
 impl<E1, E2, S>
-  NonUniformCircuit<E1, E2, NonTrivialTestCircuit<E1::Scalar>, TrivialTestCircuit<E2::Scalar>>
+  NonUniformCircuit<E1, E2, NonTrivialTestCircuit<E1::Scalar>, TrivialTestCircuit<E2::Scalar>, 2>
   for NonUniformBench<E1, E2, S>
 where
   E1: Engine<Base = <E2 as Engine>::Scalar>,
   E2: Engine<Base = <E1 as Engine>::Scalar>,
   S: StepCircuit<E2::Scalar> + Default,
 {
-  fn num_circuits(&self) -> usize {
-    self.num_circuits
-  }
-
   fn primary_circuit(&self, circuit_index: usize) -> NonTrivialTestCircuit<E1::Scalar> {
     assert!(circuit_index < self.num_circuits);
 
@@ -151,12 +147,12 @@ fn bench_one_augmented_circuit_compressed_snark(c: &mut Criterion) {
     assert!(recursive_snark_option.is_some());
     let recursive_snark = recursive_snark_option.unwrap();
 
-    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, S1, S2>::setup(&pp).unwrap();
+    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, S1, S2, 2>::setup(&pp).unwrap();
 
     // Benchmark the prove time
     group.bench_function("Prove", |b| {
       b.iter(|| {
-        assert!(CompressedSNARK::<_, _, _, _, S1, S2>::prove(
+        assert!(CompressedSNARK::<_, _, _, _, S1, S2, 2>::prove(
           black_box(&pp),
           black_box(&prover_key),
           black_box(&recursive_snark)
@@ -165,7 +161,7 @@ fn bench_one_augmented_circuit_compressed_snark(c: &mut Criterion) {
       })
     });
 
-    let res = CompressedSNARK::<_, _, _, _, S1, S2>::prove(&pp, &prover_key, &recursive_snark);
+    let res = CompressedSNARK::<_, _, _, _, S1, S2, 2>::prove(&pp, &prover_key, &recursive_snark);
 
     assert!(res.is_ok());
     let compressed_snark = res.unwrap();
@@ -259,12 +255,12 @@ fn bench_two_augmented_circuit_compressed_snark(c: &mut Criterion) {
     assert!(recursive_snark_option.is_some());
     let recursive_snark = recursive_snark_option.unwrap();
 
-    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, S1, S2>::setup(&pp).unwrap();
+    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, S1, S2, 2>::setup(&pp).unwrap();
 
     // Benchmark the prove time
     group.bench_function("Prove", |b| {
       b.iter(|| {
-        assert!(CompressedSNARK::<_, _, _, _, S1, S2>::prove(
+        assert!(CompressedSNARK::<_, _, _, _, S1, S2, 2>::prove(
           black_box(&pp),
           black_box(&prover_key),
           black_box(&recursive_snark)
@@ -273,7 +269,7 @@ fn bench_two_augmented_circuit_compressed_snark(c: &mut Criterion) {
       })
     });
 
-    let res = CompressedSNARK::<_, _, _, _, S1, S2>::prove(&pp, &prover_key, &recursive_snark);
+    let res = CompressedSNARK::<_, _, _, _, S1, S2, 2>::prove(&pp, &prover_key, &recursive_snark);
 
     assert!(res.is_ok());
     let compressed_snark = res.unwrap();
@@ -367,12 +363,13 @@ fn bench_two_augmented_circuit_compressed_snark_with_computational_commitments(c
     assert!(recursive_snark_option.is_some());
     let recursive_snark = recursive_snark_option.unwrap();
 
-    let (prover_key, verifier_key) = CompressedSNARK::<_, _, _, _, SS1, SS2>::setup(&pp).unwrap();
+    let (prover_key, verifier_key) =
+      CompressedSNARK::<_, _, _, _, SS1, SS2, 2>::setup(&pp).unwrap();
 
     // Benchmark the prove time
     group.bench_function("Prove", |b| {
       b.iter(|| {
-        assert!(CompressedSNARK::<_, _, _, _, SS1, SS2>::prove(
+        assert!(CompressedSNARK::<_, _, _, _, SS1, SS2, 2>::prove(
           black_box(&pp),
           black_box(&prover_key),
           black_box(&recursive_snark)
@@ -381,7 +378,7 @@ fn bench_two_augmented_circuit_compressed_snark_with_computational_commitments(c
       })
     });
 
-    let res = CompressedSNARK::<_, _, _, _, SS1, SS2>::prove(&pp, &prover_key, &recursive_snark);
+    let res = CompressedSNARK::<_, _, _, _, SS1, SS2, 2>::prove(&pp, &prover_key, &recursive_snark);
 
     assert!(res.is_ok());
     let compressed_snark = res.unwrap();
