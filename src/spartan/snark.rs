@@ -457,7 +457,6 @@ pub(in crate::spartan) fn batch_eval_prove<E: Engine>(
   NovaError,
 > {
   let num_claims = u_vec.len();
-  assert_eq!(w_vec.len(), num_claims);
 
   // Compute nᵢ and n = maxᵢ{nᵢ}
   let num_rounds = u_vec.iter().map(|u| u.x.len()).collect::<Vec<_>>();
@@ -492,8 +491,11 @@ pub(in crate::spartan) fn batch_eval_prove<E: Engine>(
   let (sc_proof_batch, r, claims_batch) = SumcheckProof::prove_quad_batch(
     &claims,
     &num_rounds,
-    polys_P,
-    polys_eq,
+    polys_P
+      .try_into()
+      .map_err(|_| NovaError::InvalidInputLength)?,
+    polys_eq.try_into()
+    .map_err(|_| NovaError::InvalidInputLength)?,
     &powers_of_rho,
     comb_func,
     transcript,

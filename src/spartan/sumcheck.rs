@@ -174,24 +174,19 @@ impl<E: Engine> SumcheckProof<E> {
     ))
   }
 
-  pub fn prove_quad_batch<F>(
-    claims: &[E::Scalar],
-    num_rounds: &[usize],
-    mut poly_A_vec: Vec<MultilinearPolynomial<E::Scalar>>,
-    mut poly_B_vec: Vec<MultilinearPolynomial<E::Scalar>>,
-    coeffs: &[E::Scalar],
+  pub fn prove_quad_batch<F, const N: usize>(
+    claims: &[E::Scalar; N],
+    num_rounds: &[usize; N],
+    mut poly_A_vec: [MultilinearPolynomial<E::Scalar>; N],
+    mut poly_B_vec: [MultilinearPolynomial<E::Scalar>; N],
+    coeffs: &[E::Scalar; N],
     comb_func: F,
     transcript: &mut E::TE,
   ) -> Result<(Self, Vec<E::Scalar>, (Vec<E::Scalar>, Vec<E::Scalar>)), NovaError>
   where
     F: Fn(&E::Scalar, &E::Scalar) -> E::Scalar + Sync,
   {
-    let num_claims = claims.len();
-
-    assert_eq!(num_rounds.len(), num_claims);
-    assert_eq!(poly_A_vec.len(), num_claims);
-    assert_eq!(poly_B_vec.len(), num_claims);
-    assert_eq!(coeffs.len(), num_claims);
+    let num_claims = N;
 
     for (i, &num_rounds) in num_rounds.iter().enumerate() {
       let expected_size = 1 << num_rounds;
@@ -200,18 +195,12 @@ impl<E: Engine> SumcheckProof<E> {
       let a = &poly_A_vec[i];
       let b = &poly_B_vec[i];
 
-      assert_eq!(
-        a.len(),
-        expected_size,
-        "Mismatch in size for poly_A_vec at index {}",
-        i
-      );
-      assert_eq!(
-        b.len(),
-        expected_size,
-        "Mismatch in size for poly_B_vec at index {}",
-        i
-      );
+      for (len, polyname) in [(a.len(), "poly_A_vec"), (b.len(), "poly_B_vec")].iter() {
+        assert_eq!(
+          *len, expected_size,
+          "Mismatch in size for {polyname} at index {i}"
+        );
+      }
     }
 
     let num_rounds_max = *num_rounds.iter().max().unwrap();

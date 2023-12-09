@@ -422,12 +422,7 @@ where
     recursive_snark
       .verify(&pp, op_code, &z0_primary, &z0_secondary)
       .map_err(|err| {
-        print_constraints_name_on_error_index(
-          &err,
-          &pp,
-          &circuit_primary,
-          &circuit_secondary,
-        )
+        print_constraints_name_on_error_index(&err, &pp, &circuit_primary, &circuit_secondary)
       })
       .unwrap();
 
@@ -869,12 +864,7 @@ where
     &z0_secondary,
   )
   .map_err(|err| {
-    print_constraints_name_on_error_index(
-      &err,
-      &pp,
-      circuit_primary,
-      &circuit_secondary,
-    )
+    print_constraints_name_on_error_index(&err, &pp, circuit_primary, &circuit_secondary)
   })
   .unwrap();
 
@@ -882,12 +872,7 @@ where
     let res = recursive_snark.prove_step(&pp, circuit_primary, &circuit_secondary);
     assert!(res
       .map_err(|err| {
-        print_constraints_name_on_error_index(
-          &err,
-          &pp,
-          circuit_primary,
-          &circuit_secondary,
-        )
+        print_constraints_name_on_error_index(&err, &pp, circuit_primary, &circuit_secondary)
       })
       .is_ok());
 
@@ -895,12 +880,7 @@ where
     let res = recursive_snark
       .verify(&pp, 0, &z0_primary, &z0_secondary)
       .map_err(|err| {
-        print_constraints_name_on_error_index(
-          &err,
-          &pp,
-          circuit_primary,
-          &circuit_secondary,
-        )
+        print_constraints_name_on_error_index(&err, &pp, circuit_primary, &circuit_secondary)
       });
     assert!(res.is_ok());
   }

@@ -19,7 +19,7 @@ use super::{
   powers,
   snark::batch_eval_prove,
   sumcheck::SumcheckProof,
-  PolyEvalInstance, PolyEvalWitness,
+  PolyEvalInstance, PolyEvalWitness, npowers,
 };
 
 use crate::{
@@ -188,6 +188,9 @@ where
     let num_rounds_x: [_; N] = num_rounds_x
       .try_into()
       .map_err(|_| NovaError::InternalError)?;
+    let num_rounds_y: [_; N] = num_rounds_y
+      .try_into()
+      .map_err(|_| NovaError::InternalError)?;
 
     // Generate tau polynomial corresponding to eq(τ, τ², τ⁴ , …)
     // for a random challenge τ
@@ -287,12 +290,12 @@ where
     let inner_r = transcript.squeeze(b"in_r")?;
     let inner_r_square = inner_r.square();
     let inner_r_cube = inner_r_square * inner_r;
-    let inner_r_powers = powers::<E>(&inner_r_cube, num_instances);
+    let inner_r_powers = npowers::<E, N>(&inner_r_cube);
 
     let claims_inner_joint = evals_Az_Bz_Cz
       .iter()
       .map(|(eval_Az, eval_Bz, eval_Cz)| *eval_Az + inner_r * eval_Bz + inner_r_square * eval_Cz)
-      .collect::<Vec<_>>();
+      .collect::<Vec<_>>().try_into().map_err(|_| NovaError::InternalError)?;
 
     let polys_ABCs = {
       let inner = |M_evals_As: Vec<E::Scalar>,
@@ -332,8 +335,12 @@ where
       SumcheckProof::prove_quad_batch(
         &claims_inner_joint,
         &num_rounds_y,
-        polys_ABCs,
-        polys_Z,
+        polys_ABCs
+          .try_into()
+          .map_err(|_| NovaError::InvalidInputLength)?,
+        polys_Z
+          .try_into()
+          .map_err(|_| NovaError::InvalidInputLength)?,
         &inner_r_powers,
         comb_func,
         &mut transcript,
