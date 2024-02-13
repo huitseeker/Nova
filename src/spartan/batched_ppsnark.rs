@@ -226,6 +226,13 @@ impl<E: Engine, EE: EvaluationEngineTrait<E>> BatchedRelaxedR1CSSNARKTrait<E>
     let comms_Az_Bz_Cz = polys_Az_Bz_Cz
       .par_iter()
       .map(|[Az, Bz, Cz]| {
+        #[cfg(features = "cuda")]
+        {
+          let comm_Az = E::CE::commit(ck, Az);
+                  let comm_Bz = E::CE::commit(ck, Bz);
+                  let comm_Cz = E::CE::commit(ck, Cz);
+        }
+        #[cfg(not(features = "cuda"))]
         let (comm_Az, (comm_Bz, comm_Cz)) = rayon::join(
           || E::CE::commit(ck, Az),
           || rayon::join(|| E::CE::commit(ck, Bz), || E::CE::commit(ck, Cz)),
